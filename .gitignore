@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.auth/
+
+# Environment variables (contains credentials)
+.env
+.env.local
+
+# Authentication state files (contains session cookies)
+storageState/
+*.json.auth
+
+# Job data (may contain personal analysis)
+data/
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

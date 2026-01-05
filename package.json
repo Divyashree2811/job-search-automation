@@ -1,0 +1,28 @@
+{
+  "name": "playwright-automation",
+  "version": "1.0.0",
+  "description": "Playwright automation framework with TypeScript",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "test:xing": "playwright test tests/xing.spec.ts --headed",
+    "test:login": "playwright test tests/xing-login.spec.ts --headed",
+    "test:jobs": "playwright test tests/xing-jobs.spec.ts --headed",
+    "test:e2e": "playwright test tests/xing-e2e.spec.ts --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@vitalets/google-translate-api": "^9.2.1",
+    "deepl-node": "^1.24.0",
+    "dotenv": "^17.2.3",
+    "ollama": "^0.6.3"
+  }
+}
