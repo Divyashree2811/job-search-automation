@@ -226,7 +226,61 @@ export class LinkedInJobPage extends BasePage {
   }
 
   /**
-   * Get job details from the currently selected job
+   * Get job details from the currently selected job (RAW - without AI analysis)
+   * This is FAST - just extracts text from page
+   */
+  async getJobDetailsRaw(): Promise<LinkedInJobDetails | null> {
+    try {
+      const jobTitle = await this.page.locator('.job-details-jobs-unified-top-card__job-title').first().textContent() || '';
+      const company = await this.page.locator('.job-details-jobs-unified-top-card__company-name').first().textContent() || '';
+
+      // Get tertiary description container which has location, date, and other info
+      const tertiaryContainer = this.page.locator('//div[contains(@class,"job-details-jobs-unified-top-card__tertiary-description-container")]').first();
+      const tertiaryText = await tertiaryContainer.textContent() || '';
+
+      // Parse location and date from the combined text
+      let location = '';
+      let datePosted = '';
+
+      if (tertiaryText) {
+        const parts = tertiaryText.split('·').map(part => part.trim());
+        if (parts.length > 0) {
+          location = parts[0];
+          datePosted = parts[1];
+        }
+      }
+
+      // Get description - NO AI ANALYSIS YET
+      let description = '';
+      try {
+        description = await this.page.locator('.jobs-description-content__text, .jobs-description__content').first().textContent({ timeout: 5000 }) || '';
+      } catch {
+        console.log('ℹ️  Description not available or still loading');
+      }
+
+      description = description.trim();
+
+      // Detect if description is in German (quick check, no translation)
+      const isGerman = this.detectGerman(description);
+
+      return {
+        jobTitle: jobTitle.trim(),
+        company: company.trim(),
+        location: location.trim(),
+        datePosted: datePosted.trim(),
+        description: description,
+        rawDescription: description,
+        isGerman: isGerman
+      };
+    } catch (error) {
+      console.error('❌ Error getting raw job details:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get job details from the currently selected job (WITH AI analysis)
+   * This is SLOW - includes translation and AI extraction
    */
   async getJobDetails(): Promise<LinkedInJobDetails | null> {
     try {
@@ -303,6 +357,31 @@ export class LinkedInJobPage extends BasePage {
   }
 
   /**
+   * Process a raw job with AI analysis
+   * This adds AI analysis to a job that was previously extracted raw
+   */
+  async processJobWithAI(rawJob: LinkedInJobDetails): Promise<LinkedInJobDetails> {
+    let aiAnalysis: AIJobAnalysis | undefined;
+    let translatedDescription: string | undefined;
+
+    if (rawJob.description.length > 100) {
+      try {
+        const analysis = await this.jobAnalyzer.analyzeJob(rawJob.description, rawJob.isGerman);
+        aiAnalysis = analysis;
+        translatedDescription = analysis.translatedDescription;
+      } catch (error) {
+        console.log(`⚠️  AI analysis failed for ${rawJob.jobTitle}:`, error);
+      }
+    }
+
+    return {
+      ...rawJob,
+      aiAnalysis,
+      translatedDescription
+    };
+  }
+
+  /**
    * Save job to database
    */
   saveJobToDatabase(jobDetails: LinkedInJobDetails): string {
@@ -360,7 +439,7 @@ export class LinkedInJobPage extends BasePage {
   /**
    * Apply filters to job search
    */
-  async applyDatePostedFilter(filter: 'Past 24 hours' | 'Past Week' | 'Past Month' | 'Any Time') {
+  async applyDatePostedFilter(filter: 'Past 24 hours' | 'Past week' | 'Past Month' | 'Any Time') {
     try {
       const dateFilterButton = this.page.locator('button:has-text("Date posted")').first();
       await dateFilterButton.click();

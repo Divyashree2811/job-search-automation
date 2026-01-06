@@ -13,11 +13,15 @@ playwright/.auth/
 # Authentication state files (contains session cookies)
 storageState/
 *.json.auth
+cookies.json
 
 # Job data (may contain personal analysis)
 data/
 logs/
 *.log
+
+# Temporary files
+temp/
 
 # IDE
 .vscode/

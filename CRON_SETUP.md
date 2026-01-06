@@ -1,139 +1,196 @@
-# Daily Job Search Automation Setup
+# LinkedIn Job Search - Cron Job Setup Guide
+
+Automated daily LinkedIn job search at 6:00 AM with retry logic and headless mode.
 
 ## Overview
-Run automated job search daily at a scheduled time in headless mode (no browser window).
 
-## Features
-- ✅ Runs in headless mode (background)
-- ✅ Saves results to database
-- ✅ Logs all output
-- ✅ Sends macOS notification when complete
-- ✅ Auto-cleans old logs (30 days)
+- **Schedule**: Daily at 6:00 AM
+- **Mode**: Headless (no browser UI)
+- **Retry Logic**: 5 attempts with exponential backoff
+- **Logging**: Detailed logs saved to `logs/cron/`
 
-## Setup Instructions
+## Prerequisites
 
-### 1. Test the Script First
+1. ✅ **Ollama running** (or auto-start on boot)
+2. ✅ **LinkedIn auth saved** in `storageState/linkedinAuth.json`
+3. ✅ **Environment configured** in `.env` file
+
+## Quick Setup
+
+### 1. Make Script Executable
+
 ```bash
-cd "/Users/divyashree/Documents/Interview Prep Docs/JobSearch/playwright-project"
-./daily-job-search.sh
+chmod +x scripts/linkedin-master.sh
 ```
 
-Check the log file in `./logs/job-search-YYYY-MM-DD_HH-MM-SS.log`
+### 2. Test Manually
 
-### 2. Set Up Cron Job (macOS)
-
-#### Option A: Run at 9 AM every day
 ```bash
-# Open crontab editor
+./scripts/linkedin-master.sh
+```
+
+Check log: `logs/cron/linkedin_YYYYMMDD_HHMMSS.log`
+
+### 3. Setup Cron Job
+
+```bash
 crontab -e
-
-# Add this line (press 'i' to insert, then paste):
-0 9 * * * /Users/divyashree/Documents/Interview\ Prep\ Docs/JobSearch/playwright-project/daily-job-search.sh
-
-# Save and exit (press ESC, then type :wq and press ENTER)
 ```
 
-#### Option B: Run at 6 PM every weekday (Mon-Fri)
-```bash
-0 18 * * 1-5 /Users/divyashree/Documents/Interview\ Prep\ Docs/JobSearch/playwright-project/daily-job-search.sh
+Add this line:
+
+```cron
+# LinkedIn Job Search - Daily at 6:00 AM
+0 6 * * * /bin/bash "/Users/divyashree/Documents/Interview Prep Docs/JobSearch/playwright-project/scripts/linkedin-master.sh" >> "/Users/divyashree/Documents/Interview Prep Docs/JobSearch/playwright-project/logs/cron/cron_output.log" 2>&1
 ```
 
-#### Option C: Run twice daily (9 AM and 6 PM)
-```bash
-0 9,18 * * * /Users/divyashree/Documents/Interview\ Prep\ Docs/JobSearch/playwright-project/daily-job-search.sh
-```
+### 4. Verify
 
-### 3. Verify Cron Job
 ```bash
-# List all cron jobs
 crontab -l
 ```
 
-### 4. Grant Permissions (macOS)
-If cron doesn't run, grant Full Disk Access to `cron`:
-1. System Preferences → Security & Privacy → Privacy
-2. Select "Full Disk Access"
-3. Click the lock icon and authenticate
-4. Click "+" and add `/usr/sbin/cron`
+## macOS Permissions
 
-## Cron Schedule Format
+Grant Full Disk Access to cron:
+
+1. **System Preferences** → **Security & Privacy** → **Privacy**
+2. Select **Full Disk Access**
+3. Click lock icon → Click **+**
+4. Add `/usr/sbin/cron`
+
+## Alternative: Using launchd (macOS)
+
+Create file: `~/Library/LaunchAgents/com.jobsearch.linkedin.plist`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jobsearch.linkedin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/divyashree/Documents/Interview Prep Docs/JobSearch/playwright-project/scripts/linkedin-master.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>6</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/divyashree/Documents/Interview Prep Docs/JobSearch/playwright-project/logs/cron/launchd_output.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/divyashree/Documents/Interview Prep Docs/JobSearch/playwright-project/logs/cron/launchd_error.log</string>
+</dict>
+</plist>
 ```
-* * * * * command
-│ │ │ │ │
-│ │ │ │ └─── Day of week (0-7, 0 and 7 = Sunday)
-│ │ │ └───── Month (1-12)
-│ │ └─────── Day of month (1-31)
-│ └───────── Hour (0-23)
-└─────────── Minute (0-59)
-```
 
-## Examples
-- `0 9 * * *` - Every day at 9:00 AM
-- `30 18 * * 1-5` - Weekdays at 6:30 PM
-- `0 */6 * * *` - Every 6 hours
-- `0 9,14,18 * * *` - At 9 AM, 2 PM, and 6 PM daily
+Load the job:
 
-## View Results
-
-### Check Latest Log
 ```bash
-tail -100 logs/job-search-*.log | tail -1
+launchctl load ~/Library/LaunchAgents/com.jobsearch.linkedin.plist
+launchctl start com.jobsearch.linkedin
+launchctl list | grep jobsearch
 ```
 
-### View Database Stats
-```bash
-cat data/analyzed-jobs.json | jq '.totalJobs, .lastUpdated, .jobs | length'
+## Retry Logic
+
+Built-in retry with exponential backoff:
+
+1. **Attempt 1**: Immediate
+2. **Attempt 2**: Wait 60s
+3. **Attempt 3**: Wait 120s
+4. **Attempt 4**: Wait 180s
+5. **Attempt 5**: Wait 240s
+
+Max total time: ~10 min + execution
+
+## Custom Schedules
+
+```cron
+# Every weekday (Mon-Fri) at 6 AM
+0 6 * * 1-5 /path/to/script
+
+# Twice daily (6 AM and 6 PM)
+0 6,18 * * * /path/to/script
+
+# Every 6 hours
+0 */6 * * * /path/to/script
 ```
 
-### Query Qualified Jobs
+## Monitoring
+
+### View Latest Log
+
 ```bash
-cat data/analyzed-jobs.json | jq '.jobs[] | select(.jobDetails.atsScore.overallScore >= 40 and .jobDetails.aiAnalysis.germanRequired == false) | {title: .title, company: .company, score: .jobDetails.atsScore.overallScore}'
+ls -t logs/cron/linkedin_*.log | head -1 | xargs cat
+```
+
+### Follow Log Real-time
+
+```bash
+tail -f logs/cron/linkedin_*.log
+```
+
+### Check Failures
+
+```bash
+grep "❌ Job failed" logs/cron/linkedin_*.log
 ```
 
 ## Troubleshooting
 
-### Cron job not running?
-1. Check cron logs: `log show --predicate 'process == "cron"' --last 1h`
-2. Verify script permissions: `ls -la daily-job-search.sh`
-3. Check if Ollama is running: `pgrep ollama`
+### Cron Not Running
 
-### Script fails?
-1. Run manually to see errors: `./daily-job-search.sh`
-2. Check log file: `tail -100 logs/job-search-*.log`
-3. Verify Playwright browsers installed: `npx playwright install`
+```bash
+# Check if cron is running
+ps aux | grep cron
 
-## Manual Run Options
-
-### Run with custom job count
-Edit `tests/xing-e2e.spec.ts` and change line 52:
-```typescript
-const jobDetails = await homePage.analyzeAllJobPostings(20); // Change from 10 to 20
+# Restart cron (macOS)
+sudo launchctl stop com.vix.cron
+sudo launchctl start com.vix.cron
 ```
 
-### Run with headed mode (show browser)
+### Test Headless Mode
+
 ```bash
-npx playwright test tests/xing-e2e.spec.ts --headed
+HEADLESS=true npx playwright test tests/linkedin-saved-auth.spec.ts
 ```
 
-### Run and show live output
+### View Cron Logs
+
 ```bash
-./daily-job-search.sh | tee /dev/tty
+# macOS
+log show --predicate 'process == "cron"' --last 1h
+
+# Linux
+grep CRON /var/log/syslog
 ```
 
 ## Disable Cron Job
+
 ```bash
-# Edit crontab
 crontab -e
-
-# Comment out the line by adding # at the beginning
-# 0 9 * * * /Users/divyashree/Documents/Interview\ Prep\ Docs/JobSearch/playwright-project/daily-job-search.sh
-
-# Or remove it completely
+# Comment out or delete the line
 ```
 
-## Notes
-- **Headless mode**: Browser runs in background (no window)
-- **Database**: Automatically skips jobs already analyzed
-- **Logs**: Saved for 30 days, then auto-deleted
-- **Notifications**: macOS notifications when job completes
-- **Results**: Check `data/analyzed-jobs.json` for all analyzed jobs
+For launchd:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.jobsearch.linkedin.plist
+```
+
+## Summary
+
+✅ Script: `scripts/linkedin-master.sh`
+✅ Retries: 5 attempts with backoff
+✅ Headless: Enabled
+✅ Logs: `logs/cron/`
+✅ Schedule: Daily at 6:00 AM
+
+Your LinkedIn job search will now run automatically! 🎉

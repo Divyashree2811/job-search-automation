@@ -52,7 +52,7 @@ test.describe('LinkedIn with Saved Auth', () => {
 
 
     // Filter to most recent jobs (Past 24 hours)
-    await jobPage.applyDatePostedFilter('Past 24 hours');
+    await jobPage.applyDatePostedFilter('Past week');
     await page.waitForTimeout(3000);
 
     const jobSearchCount = await jobPage.getResultsCount();
@@ -84,7 +84,7 @@ test.describe('LinkedIn with Saved Auth', () => {
         console.log(`📜 Scrolling to load more jobs... (current visible: ${jobCards.length})`);
 
         // Scroll down in the job list container to load more cards
-        await page.locator('.jobs-search-results-list').evaluate((el) => {
+        await page.locator('.scaffold-layout__list').evaluate((el) => {
           el.scrollTop = el.scrollHeight;
         });
 
